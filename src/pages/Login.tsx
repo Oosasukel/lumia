@@ -35,9 +35,9 @@ const Login: React.FC<RouteComponentProps> = ({ history }) => {
 
           api
             .get(`/transacao/obter-saldo/${Id}`)
-            .then((response) => {
-              if (response.status === 200) {
-                const { Saldo } = response.data;
+            .then((responseSaldo) => {
+              if (responseSaldo.status === 200) {
+                const { Saldo } = responseSaldo.data;
 
                 setUser({
                   fisica: Tipo === 'Fisica',
