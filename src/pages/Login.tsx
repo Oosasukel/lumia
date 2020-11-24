@@ -47,11 +47,11 @@ const Login: React.FC<RouteComponentProps> = ({ history }) => {
                     currency: 'BRL',
                   }),
                 });
+
+                history.push('/');
               }
             })
             .catch((err) => console.error(err));
-
-          history.push('/');
         }
       })
       .catch((err) => {
