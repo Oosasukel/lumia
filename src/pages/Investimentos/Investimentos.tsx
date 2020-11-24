@@ -1,12 +1,248 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 
 import '../../styles/pages/investimentos/investimentos.css';
 
 import Sidemenu from '../../components/Sidemenu';
 import Header from '../../components/Header';
+import { userContext } from '../../App';
+import api from '../../services/api';
+import { RouteComponentProps } from 'react-router-dom';
 
-const Investimentos: React.FC = () => {
+interface Disponivel {
+  IdHistoricoInvestimento: number;
+  IdCarteira: number;
+  TipoMoeda: number;
+  ValorInvestido: number;
+  DtInicio: string;
+  DtFim: string;
+}
+
+interface Retido {
+  IdHistoricoInvestimento: number;
+  DtInicio: string;
+  TipoMoeda: number;
+  ValorInvestido: number;
+}
+
+interface Card {
+  id: number;
+  TipoMoeda: number;
+  ValorInvestido: number;
+}
+
+const Investimentos: React.FC<RouteComponentProps> = ({ history }) => {
+  const [user, setUser] = useContext(userContext);
   const [opcao, setOpcao] = useState(1);
+  const [disponiveis, setDisponiveis] = useState<Disponivel[]>([]);
+  const [retidos, setRetidos] = useState<Retido[]>([]);
+  const [patrimonio, setPatrimonio] = useState(-1);
+  const cards: Card[] = [
+    {
+      id: 1,
+      TipoMoeda: 2,
+      ValorInvestido: 2000,
+    },
+    {
+      id: 2,
+      TipoMoeda: 1,
+      ValorInvestido: 2000,
+    },
+    {
+      id: 3,
+      TipoMoeda: 2,
+      ValorInvestido: 1500,
+    },
+    {
+      id: 4,
+      TipoMoeda: 1,
+      ValorInvestido: 1500,
+    },
+    {
+      id: 5,
+      TipoMoeda: 2,
+      ValorInvestido: 1000,
+    },
+    {
+      id: 6,
+      TipoMoeda: 1,
+      ValorInvestido: 1000,
+    },
+    {
+      id: 7,
+      TipoMoeda: 2,
+      ValorInvestido: 500,
+    },
+    {
+      id: 8,
+      TipoMoeda: 1,
+      ValorInvestido: 500,
+    },
+  ];
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
+    api
+      .get(`/investimento/obter-disponivel/${user.id}`)
+      .then((response) => {
+        if (response.status === 200) {
+          const data = response.data;
+
+          const newDisponiveis: Disponivel[] = [];
+
+          data.map((item: any) => {
+            const {
+              _carteira,
+              IdHistoricoInvestimento,
+              ValorInvestido,
+              DtInicio,
+              DtFim,
+            } = item;
+
+            const disponivel: Disponivel = {
+              IdHistoricoInvestimento,
+              DtFim: DtFim,
+              DtInicio: DtInicio,
+              IdCarteira: _carteira.IdCarteira,
+              TipoMoeda: _carteira.TipoMoeda,
+              ValorInvestido,
+            };
+
+            newDisponiveis.push(disponivel);
+          });
+
+          setDisponiveis(newDisponiveis);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+
+    api
+      .get(`/investimento/obter-retido/${user.id}`)
+      .then((response) => {
+        if (response.status === 200) {
+          const data = response.data;
+
+          const newRetidos: Retido[] = [];
+
+          data.map((item: any) => {
+            const {
+              _carteira,
+              IdHistoricoInvestimento,
+              ValorInvestido,
+              DtInicio,
+            } = item;
+
+            const newRetido: Retido = {
+              IdHistoricoInvestimento,
+              DtInicio,
+              TipoMoeda: _carteira.TipoMoeda,
+              ValorInvestido,
+            };
+
+            newRetidos.push(newRetido);
+          });
+
+          setRetidos(newRetidos);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+
+    api
+      .get(`investimento/${user.id}`)
+      .then((response) => {
+        if (response.status === 200) {
+          const { PatrimonioTotal } = response.data;
+
+          setPatrimonio(PatrimonioTotal);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  const handleResgate = (disponivel: Disponivel) => {
+    api
+      .put(`/investimento/resgatar-valor/${user.id}`, {
+        _carteira: {
+          IdCarteira: disponivel.IdCarteira,
+          TipoMoeda: disponivel.TipoMoeda,
+        },
+        ValorInvestido: disponivel.ValorInvestido,
+        DtFim: disponivel.DtFim,
+      })
+      .then((response) => {
+        if (response.status === 200) {
+          loadData();
+
+          api
+            .get(`/transacao/obter-saldo/${user.id}`)
+            .then((responseSaldo) => {
+              if (responseSaldo.status === 200) {
+                const { Saldo } = responseSaldo.data;
+
+                setUser({
+                  ...user,
+                  saldo: Number(Saldo).toLocaleString('pt-br', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  }),
+                });
+              }
+            })
+            .catch((err) => console.error(err));
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  const handleInvestimento = (card: Card) => {
+    api
+      .post('/investimento', {
+        _carteira: {
+          _pessoa: {
+            IdPessoa: user.id,
+          },
+          TipoMoeda: card.TipoMoeda,
+        },
+        ValorInvestido: card.ValorInvestido,
+      })
+      .then((response) => {
+        if (response.status === 200) {
+          loadData();
+          setOpcao(3);
+
+          api
+            .get(`/transacao/obter-saldo/${user.id}`)
+            .then((responseSaldo) => {
+              if (responseSaldo.status === 200) {
+                const { Saldo } = responseSaldo.data;
+
+                setUser({
+                  ...user,
+                  saldo: Number(Saldo).toLocaleString('pt-br', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  }),
+                });
+              }
+            })
+            .catch((err) => console.error(err));
+        }
+      })
+      .catch((err) => {
+        alert('Saldo insuficiente');
+        console.error(err);
+      });
+  };
 
   return (
     <div id='investimentos'>
@@ -38,67 +274,30 @@ const Investimentos: React.FC = () => {
             <div className='cardsContainer'>
               {opcao === 1 && (
                 <>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Bitcoin</h1>
-                    <span className='cardQuantidade'>Quant: 20</span>
-                    <span className='cardValor'>R$1.000,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a curto, médio ou longo prazo, porém o risco é
-                      alto.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Bitcoin</h1>
-                    <span className='cardQuantidade'>Quant: 20</span>
-                    <span className='cardValor'>R$1.000,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a curto, médio ou longo prazo, porém o risco é
-                      alto.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Bitcoin</h1>
-                    <span className='cardQuantidade'>Quant: 20</span>
-                    <span className='cardValor'>R$1.000,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a curto, médio ou longo prazo, porém o risco é
-                      alto.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Bitcoin</h1>
-                    <span className='cardQuantidade'>Quant: 20</span>
-                    <span className='cardValor'>R$1.000,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a curto, médio ou longo prazo, porém o risco é
-                      alto.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Bitcoin</h1>
-                    <span className='cardQuantidade'>Quant: 20</span>
-                    <span className='cardValor'>R$1.000,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a curto, médio ou longo prazo, porém o risco é
-                      alto.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Prata</h1>
-                    <span className='cardQuantidade'>Quant: 10</span>
-                    <span className='cardValor'>R$800,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a longo prazo.
-                    </p>
-                  </div>
-                  <div className='card'>
-                    <h1 className='cardTitle'>Ouro</h1>
-                    <span className='cardQuantidade'>Quant: 2</span>
-                    <span className='cardValor'>R$200,00</span>
-                    <p className='cardDescription'>
-                      Recomendado a longo médio prazo.
-                    </p>
-                  </div>
+                  {cards.map((card) => {
+                    return (
+                      <div
+                        key={card.id}
+                        onClick={() => handleInvestimento(card)}
+                        className='card'
+                      >
+                        <h1 className='cardTitle'>
+                          {card.TipoMoeda === 2 ? 'Bitcoin' : 'Ethereum'}
+                        </h1>
+                        <span className='cardValor'>
+                          {card.ValorInvestido.toLocaleString('pt-br', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          })}
+                        </span>
+                        <p className='cardDescription'>
+                          {card.TipoMoeda === 2
+                            ? 'Descrição Bitcoin'
+                            : 'Descrição Ethereum'}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </>
               )}
               {opcao === 2 && (
@@ -112,30 +311,32 @@ const Investimentos: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>12/11/2020</td>
-                        <td>R$ 79,90</td>
-                        <td>Pagamento da internet</td>
-                        <td>
-                          <button>Resgatar</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>10/11/2020</td>
-                        <td>R$ 1.000,00</td>
-                        <td>Depósito por boleto</td>
-                        <td>
-                          <button>Resgatar</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>28/10/2020</td>
-                        <td>R$ 900,00</td>
-                        <td>Bananas</td>
-                        <td>
-                          <button>Resgatar</button>
-                        </td>
-                      </tr>
+                      {disponiveis.map((disponivel) => {
+                        return (
+                          <tr key={disponivel.IdHistoricoInvestimento}>
+                            <td>{disponivel.DtInicio}</td>
+                            <td>
+                              {disponivel.ValorInvestido.toLocaleString(
+                                'pt-br',
+                                {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                }
+                              )}
+                            </td>
+                            <td>
+                              {disponivel.TipoMoeda === 2
+                                ? 'Bitcoin'
+                                : 'Ethereum'}
+                            </td>
+                            <td>
+                              <button onClick={() => handleResgate(disponivel)}>
+                                Resgatar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </>
@@ -151,21 +352,22 @@ const Investimentos: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>12/11/2020</td>
-                        <td>R$ 79,90</td>
-                        <td>Pagamento da internet</td>
-                      </tr>
-                      <tr>
-                        <td>10/11/2020</td>
-                        <td>R$ 1.000,00</td>
-                        <td>Depósito por boleto</td>
-                      </tr>
-                      <tr>
-                        <td>28/10/2020</td>
-                        <td>R$ 900,00</td>
-                        <td>Bananas</td>
-                      </tr>
+                      {retidos.map((retido) => {
+                        return (
+                          <tr key={retido.IdHistoricoInvestimento}>
+                            <td>{retido.DtInicio}</td>
+                            <td>
+                              {retido.ValorInvestido.toLocaleString('pt-br', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              })}
+                            </td>
+                            <td>
+                              {retido.TipoMoeda === 2 ? 'Bitcoin' : 'Ethereum'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </>
@@ -173,7 +375,14 @@ const Investimentos: React.FC = () => {
             </div>
             <div className='patrimonio'>
               <span className='label'>Patrimônio total:</span>
-              <span className='value'>R$6.100,00</span>
+              <span className='value'>
+                {patrimonio !== -1
+                  ? patrimonio.toLocaleString('pt-br', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    })
+                  : '--'}
+              </span>
             </div>
           </div>
         </div>

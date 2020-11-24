@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 import '../styles/pages/login.css';
 import '../styles/pages/recuperar-senha.css';
 
 const RecuperarSenha: React.FC = () => {
   const [emailSended, setEmailSended] = useState(false);
-  const handleSubmit = () => {};
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-  const handleSendEmail = () => {
-    setEmailSended(true);
+    api
+      .post('/email', { Email: email })
+      .then((response) => {
+        setEmailSended(true);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
   };
+  const [email, setEmail] = useState('');
 
   return (
     <div id='login'>
@@ -20,8 +29,13 @@ const RecuperarSenha: React.FC = () => {
             <h1>Recuperar Senha</h1>
             <p>Digite seu email para recuperar a senha.</p>
             <form onSubmit={handleSubmit}>
-              <input type='text' placeholder='Email' />
-              <button type='button' className='enter' onClick={handleSendEmail}>
+              <input
+                value={email}
+                onInput={(event) => setEmail(event.currentTarget.value)}
+                type='text'
+                placeholder='Email'
+              />
+              <button type='submit' className='enter'>
                 Enviar
               </button>
             </form>

@@ -70,6 +70,16 @@
   color: var(--color-primary);
 }
 
+#login .loginContainer form .error {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #f00;
+}
+
+#login .loginContainer form .enter.creating {
+  opacity: 0.6;
+}
+
 #login .loginContainer form .enter {
   width: 120px;
   height: 48px;
@@ -86,6 +96,10 @@
   align-items: center;
 
   transition: background-color 0.2s;
+}
+
+#login .loginContainer form .enter.loading {
+  opacity: 0.6;
 }
 
 #login .loginContainer form .enter:hover {

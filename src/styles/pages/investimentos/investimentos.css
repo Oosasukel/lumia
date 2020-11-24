@@ -139,10 +139,11 @@
   flex-direction: column;
   box-shadow: 0 0 10px black;
   width: 160px;
-  height: 180px;
+  height: 160px;
   border-radius: 10px;
   padding: 1rem;
   margin: 0.5rem;
+  cursor: pointer;
 }
 
 #investimentos
@@ -240,6 +241,8 @@
   color: var(--color-text-in-primary);
   font-size: 1.3rem;
   padding-bottom: 1rem;
+  padding-right: 1rem;
+  padding-left: 1rem;
 }
 
 #investimentos .investimentosContent .content table tr td {

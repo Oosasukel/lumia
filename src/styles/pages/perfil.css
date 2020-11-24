@@ -38,6 +38,15 @@
   flex: 1;
 }
 
+#perfil
+  .perfilContent
+  .content
+  .itemsContainer
+  .inputsContainer
+  .salvar.updating {
+  opacity: 0.6;
+}
+
 #perfil .perfilContent .content .itemsContainer .inputsContainer .salvar {
   width: 120px;
   height: 48px;

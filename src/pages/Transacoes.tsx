@@ -1,12 +1,144 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { FaSearch } from 'react-icons/fa';
+import { userContext } from '../App';
 import Header from '../components/Header';
 import Sidemenu from '../components/Sidemenu';
+import api from '../services/api';
 
 import '../styles/pages/transacoes.css';
 
+interface Historico {
+  IdHistorico: number;
+  DataHora: string;
+  TipoTransacao: string;
+  Valor: string;
+}
+
 const Transacoes: React.FC = () => {
+  const [user, setUser] = useContext(userContext);
   const [opcao, setOpcao] = useState(1);
+  const [historico, setHistorico] = useState<Historico[]>([]);
+  const [vencimento, setVencimento] = useState('');
+  const [valor, setValor] = useState('');
+  const [numeracao, setNumeracao] = useState('');
+  const [metodo, setMetodo] = useState('none');
+  const [descricao, setDescricao] = useState('');
+  const [vencimentoToSend, setVencimentoToSend] = useState('');
+
+  const buscaHistorico = () => {
+    api
+      .post(`/transacao/obter-todos`, { IdPessoa: user.id })
+      .then((response) => {
+        if (response.status === 200) {
+          const data: Array<any> = response.data;
+          const newHistorico: Historico[] = [];
+
+          data.forEach((item) => {
+            const { IdHistorico, DataHora, TipoTransacao, Valor } = item;
+
+            const newItem: Historico = {
+              IdHistorico,
+              DataHora: new Date(DataHora).toLocaleString(),
+              TipoTransacao,
+              Valor: Number(Valor).toLocaleString('pt-br', {
+                style: 'currency',
+                currency: 'BRL',
+              }),
+            };
+            newHistorico.push(newItem);
+          });
+
+          setHistorico(newHistorico);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  useEffect(() => {
+    buscaHistorico();
+  }, []);
+
+  const buscaBoleto = (codigo: string) => {
+    api
+      .get(`/transacao/obter-boleto/${codigo}`)
+      .then((response) => {
+        if (response.status === 200) {
+          const { Valor, dtVencimento } = response.data;
+
+          setValor(Valor);
+          setVencimento(String(dtVencimento).substring(0, 10));
+          setVencimentoToSend(dtVencimento);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
+
+  const handlePayment = () => {
+    if (metodo !== 'none') {
+      let vencimentoToPay = vencimentoToSend;
+      if (vencimentoToPay === '') {
+        if (vencimento !== '') {
+          vencimentoToPay = `${vencimento}T00:00:00`;
+        } else {
+          alert('Vencimento não informado');
+          return;
+        }
+      }
+
+      api
+        .post('/transacao', {
+          _carteira: {
+            _pessoa: {
+              IdPessoa: user.id,
+            },
+            TipoMoeda: metodo === 'bitcoin' ? 2 : 1,
+          },
+          Valor: valor,
+          dtVencimento: vencimentoToPay,
+          Descricao: descricao,
+        })
+        .then((response) => {
+          if (response.status === 200) {
+            buscaHistorico();
+
+            api
+              .get(`/transacao/obter-saldo/${user.id}`)
+              .then((responseSaldo) => {
+                if (responseSaldo.status === 200) {
+                  const { Saldo } = responseSaldo.data;
+
+                  setUser({
+                    ...user,
+                    saldo: Number(Saldo).toLocaleString('pt-br', {
+                      style: 'currency',
+                      currency: 'BRL',
+                    }),
+                  });
+                }
+              })
+              .catch((err) => console.error(err));
+
+            alert('Sucesso!');
+          }
+        })
+        .catch((err) => {
+          alert('Erro!');
+          console.error(err);
+        })
+        .finally(() => {
+          setVencimento('');
+          setDescricao('');
+          setNumeracao('');
+          setValor('');
+        });
+    } else {
+      alert('Indique o método.');
+    }
+  };
 
   return (
     <div id='transacoes'>
@@ -34,11 +166,26 @@ const Transacoes: React.FC = () => {
               {opcao === 1 ? (
                 <>
                   <label>Numeração do boleto</label>
-                  <input type='number' placeholder='Numeração do boleto' />
+                  <input
+                    value={numeracao}
+                    onInput={(event) => {
+                      const value = event.currentTarget.value;
+
+                      if (value.length === 10) {
+                        buscaBoleto(value);
+                      }
+
+                      setNumeracao(value);
+                    }}
+                    type='number'
+                    placeholder='Numeração do boleto'
+                  />
                   <div className='inputsContainer'>
                     <div className='inputBox'>
                       <label>Valor</label>
                       <input
+                        value={valor}
+                        onInput={(event) => setValor(event.currentTarget.value)}
                         className='inputValue'
                         type='number'
                         placeholder='Valor R$'
@@ -47,6 +194,10 @@ const Transacoes: React.FC = () => {
                     <div className='inputBox'>
                       <label>Vencimento</label>
                       <input
+                        value={vencimento}
+                        onChange={(event) =>
+                          setVencimento(event.currentTarget.value)
+                        }
                         className='inputDate'
                         type='date'
                         placeholder='Data de Vencimento'
@@ -54,15 +205,25 @@ const Transacoes: React.FC = () => {
                     </div>
                   </div>
                   <label>Descrição</label>
-                  <input type='text' placeholder='Pequena descrição...' />
+                  <input
+                    value={descricao}
+                    onInput={(event) => setDescricao(event.currentTarget.value)}
+                    type='text'
+                    placeholder='Pequena descrição...'
+                  />
                   <div className='selectDiv'>
-                    <select defaultValue='none'>
+                    <select
+                      defaultValue='none'
+                      onChange={(event) => setMetodo(event.currentTarget.value)}
+                    >
                       <option value='none'>Método de pagamento...</option>
                       <option value='bitcoin'>Bitcoin</option>
                       <option value='etherium'>Etherium</option>
                     </select>
                   </div>
-                  <button className='pagar'>Pague agora</button>{' '}
+                  <button onClick={handlePayment} className='pagar'>
+                    Pague agora
+                  </button>{' '}
                 </>
               ) : (
                 <>
@@ -75,21 +236,15 @@ const Transacoes: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td>12/11/2020</td>
-                        <td>R$ 79,90</td>
-                        <td>Pagamento da internet</td>
-                      </tr>
-                      <tr>
-                        <td>10/11/2020</td>
-                        <td>R$ 1.000,00</td>
-                        <td>Depósito por boleto</td>
-                      </tr>
-                      <tr>
-                        <td>28/10/2020</td>
-                        <td>R$ 900,00</td>
-                        <td>Bananas</td>
-                      </tr>
+                      {historico.map((item) => {
+                        return (
+                          <tr key={item.IdHistorico}>
+                            <td>{item.DataHora}</td>
+                            <td>{item.Valor}</td>
+                            <td>{item.TipoTransacao}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </>

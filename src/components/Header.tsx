@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { FaMoneyBill } from 'react-icons/fa';
 import { MdMenu } from 'react-icons/md';
 import { Link, useLocation } from 'react-router-dom';
@@ -6,8 +6,10 @@ import { GiExitDoor } from 'react-icons/gi';
 
 import '../styles/components/header.css';
 import SidemenuModal from './SidemenuModal';
+import { userContext } from '../App';
 
 const Header: React.FC = () => {
+  const [user, setUser] = useContext(userContext);
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState(false);
 
@@ -19,7 +21,7 @@ const Header: React.FC = () => {
         <Link to='/saldo'>
           <div className='saldo'>
             <FaMoneyBill />
-            <span>100.00</span>
+            <span>{user.saldo}</span>
           </div>
         </Link>
         <Link
@@ -30,9 +32,9 @@ const Header: React.FC = () => {
         >
           Meu Perfil
         </Link>
-        <Link to='/login'>
+        <a onClick={() => setUser({})}>
           <GiExitDoor className='exitSvg' />
-        </Link>
+        </a>
       </div>
     </div>
   );
